@@ -1,8 +1,8 @@
 from model.evolution import Evolution
 from model.fitness_evaluator import FitnessEvaluator
 from model.pattern import Pattern
-from controller.input_handler import InputHandler
-from controller.output_handler import OutputHandler
+from control.input_handler import InputHandler
+from control.output_handler import OutputHandler
 
 class ModelController:
     """

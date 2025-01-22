@@ -1,4 +1,4 @@
-from controller.model_controller import ModelController
+from control.model_controller import ModelController
 from view.viewer import Viewer
 
 
