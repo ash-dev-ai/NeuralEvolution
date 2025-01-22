@@ -36,15 +36,10 @@ class Evolution:
 
     def evaluate_population(self):
         """
-        Evaluates the fitness of all patterns in the population.
-
-        Returns:
-            None
+        Evaluates the fitness of the entire population.
         """
         for pattern in self.population:
-            objective_score = self.fitness_evaluator.evaluate_objective(pattern)
-            subjective_score = 0  # Placeholder for user feedback
-            pattern.fitness = self.fitness_evaluator.combine_scores(objective_score, subjective_score)
+            pattern.evaluate_fitness(self.fitness_evaluator)
 
     def select_parents(self):
         """
@@ -83,6 +78,10 @@ class Evolution:
                 # Blend biases from both parents
                 offspring_network.biases[i] = (parent1.neural_network.biases[i] + parent2.neural_network.biases[i]) / 2
         return Pattern(offspring_network)
+        
+        offspring = Pattern(offspring_network)
+        offspring.generate_pattern()  # Add this line
+        return offspring
 
     def mutate(self, pattern):
         """
@@ -95,6 +94,7 @@ class Evolution:
             None
         """
         pattern.mutate(self.mutation_rate)
+        pattern.generate_pattern() 
 
     def generate_next_generation(self):
         """

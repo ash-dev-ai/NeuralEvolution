@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
 
+
 class OutputHandler:
     """
     Handles exporting and logging data for the evolution process.
@@ -36,6 +37,24 @@ class OutputHandler:
                     os.rmdir(file_path)
         self._ensure_directory(self.export_dir)
         print("OutputHandler reset.")
+
+    def export(self, evolution, format):
+        """
+        Exports evolution data.
+
+        Args:
+            evolution (Evolution): The evolution object.
+            format (str): The export format ("images" or "video").
+
+        Returns:
+            None
+        """
+        if format == "images":
+            self.export_images(evolution.get_population(), evolution.generation_count)
+        elif format == "video":
+            self.export_video(evolution)
+        else:
+            raise ValueError(f"Unsupported export format: {format}")
 
     def export_images(self, population, generation):
         """

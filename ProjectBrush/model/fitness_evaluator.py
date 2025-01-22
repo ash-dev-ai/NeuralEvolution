@@ -21,26 +21,15 @@ class FitnessEvaluator:
         }
 
     def evaluate_objective(self, pattern):
-        """
-        Evaluates the fitness of a pattern using objective metrics.
-
-        Args:
-            pattern (Pattern): The pattern to evaluate.
-
-        Returns:
-            float: Objective fitness score.
-        """
-        symmetry_score = self._evaluate_symmetry(pattern.canvas)
-        complexity_score = self._evaluate_complexity(pattern.canvas)
-        contrast_score = self._evaluate_contrast(pattern.canvas)
-
-        # Combine scores based on weights
+        symmetry_score = max(self._evaluate_symmetry(pattern.canvas), 0)
+        complexity_score = max(self._evaluate_complexity(pattern.canvas), 0)
+        contrast_score = max(self._evaluate_contrast(pattern.canvas), 0)
+        
         objective_score = (
             self.criteria_weights["symmetry"] * symmetry_score +
             self.criteria_weights["complexity"] * complexity_score +
             self.criteria_weights["contrast"] * contrast_score
         )
-
         return objective_score
 
     def evaluate_subjective(self, user_feedback):
@@ -102,14 +91,6 @@ class FitnessEvaluator:
         return entropy / np.log2(len(histogram))  # Normalize to range [0, 1]
 
     def _evaluate_contrast(self, canvas):
-        """
-        Evaluates the contrast of a pattern.
-
-        Args:
-            canvas (numpy array): The artwork's canvas.
-
-        Returns:
-            float: Contrast score (0 to 1).
-        """
-        # Contrast can be measured using the standard deviation of pixel values
-        return np.std(canvas) / 1  # Normalize (assuming canvas values are in range [0, 1])
+        # Add minimum contrast threshold
+        contrast = np.std(canvas)
+        return max(contrast, 0.1)

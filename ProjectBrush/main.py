@@ -1,28 +1,17 @@
 from control.model_controller import ModelController
 from view.viewer import Viewer
+import tkinter as tk
 
 def main():
-    """
-    Entry point for the AI Art Evolution application.
-    Initializes and connects the components, then starts the application.
-    """
-    # Initialize the ModelController with default parameters
-    population_size = 50
-    mutation_rate = 0.1
-    crossover_rate = 0.7
-
+    root = tk.Tk()
     controller = ModelController(
-        population_size=population_size,
-        mutation_rate=mutation_rate,
-        crossover_rate=crossover_rate
+        root=root,
+        population_size=10,
+        mutation_rate=0.1,
+        crossover_rate=0.7
     )
-
-    # Initialize the Viewer and pass the controller to it
-    viewer = Viewer(controller)
-
-    # Start the Viewer (Tkinter main loop)
-    viewer.run()
-
+    viewer = Viewer(controller, root)
+    root.mainloop()
 
 if __name__ == "__main__":
     main()

@@ -10,7 +10,8 @@ class ModelController:
     Manages the simulation lifecycle and communication between the Model and View.
     """
 
-    def __init__(self, population_size=50, mutation_rate=0.1, crossover_rate=0.7):
+    def __init__(self, root, population_size=50, mutation_rate=0.1, crossover_rate=0.7):
+        self.root = root
         """
         Initializes the ModelController with default or user-specified parameters.
 
@@ -52,14 +53,42 @@ class ModelController:
     def start_simulation(self):
         """
         Starts the simulation by initializing the population and setting the running flag.
-
+    
         Returns:
             None
         """
         self.evolution.initialize_population(self._neural_network_factory)
         self.is_running = True
         print(f"Simulation started with {self.population_size} patterns.")
+        print(f"Initial population: {[p.canvas.shape if p.canvas is not None else None for p in self.evolution.get_population()]}")
+        self._run_generations()
 
+    def _run_generations(self):
+        """
+        Continuously runs generations while the simulation is active.
+        """
+        if self.is_running:
+            stats = self.run_generation_cycle()
+            if self.viewer:
+                self.root.after(1000, self._run_generations)
+
+    def run_generation_cycle(self):
+        """
+        Runs a single generation cycle (evaluation, selection, crossover, mutation).
+        """
+        if not self.is_running:
+            return
+        
+        self.evolution.evaluate_population()
+        self.evolution.generate_next_generation()
+        self.current_generation += 1
+        stats = self.get_generation_statistics()
+        
+        # Update UI after stats are calculated
+        if self.viewer:
+            self.root.after(0, lambda: self.viewer.update_ui(stats))  # Force UI refresh
+        return stats
+        
     def stop_simulation(self):
         """
         Stops the simulation.
@@ -77,32 +106,27 @@ class ModelController:
         self.stop_simulation()
         self.output_handler.reset()
         self.evolution.initialize_population(self._neural_network_factory)
-        self.current_generation = 0
-        print("Simulation reset.")
+        self.current_generation = 0  # Reset generation count
+        print("Simulation reset. Current generation: 0")
 
     def run_generation_cycle(self):
-        """
-        Executes a single generation cycle.
-        """
         if not self.is_running:
             print("Simulation is not running.")
             return
-    
-        # Evaluate the current population
+        
+        # Ensure this gets called periodically
         self.evolution.evaluate_population()
-    
-        # Generate the next generation
         self.evolution.generate_next_generation()
         self.current_generation += 1
-    
+
         # Fetch statistics for the current generation
         stats = self.get_generation_statistics()
-    
-        # Render patterns in the viewer (assuming viewer is accessible)
+
+        # Update the viewer if available
         if hasattr(self, "viewer"):
             self.viewer.render_patterns(self.get_population())
             self.viewer.update_feedback(stats)
-    
+
         print(f"Generation {self.current_generation} completed: {stats}")
         return stats
 
@@ -125,8 +149,8 @@ class ModelController:
         fitness_values = [p.fitness for p in self.evolution.get_population()]
         return {
             "generation": self.current_generation,
-            "average_fitness": sum(fitness_values) / len(fitness_values),
-            "best_fitness": max(fitness_values),
+            "average_fitness": sum(fitness_values) / len(fitness_values) if fitness_values else 0,
+            "best_fitness": max(fitness_values) if fitness_values else 0,
             "population_size": len(fitness_values)
         }
 
