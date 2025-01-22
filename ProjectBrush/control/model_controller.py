@@ -3,6 +3,7 @@ from model.fitness_evaluator import FitnessEvaluator
 from model.pattern import Pattern
 from control.input_handler import InputHandler
 from control.output_handler import OutputHandler
+from model.neural_network import NeuralNetwork
 
 class ModelController:
     """
@@ -39,17 +40,23 @@ class ModelController:
         self.current_generation = 0
         self.is_running = False
 
-    def start_simulation(self, neural_network_factory):
+    def _neural_network_factory(self):
+        """
+        Factory method to create random NeuralNetwork instances.
+
+        Returns:
+            NeuralNetwork: A new randomly initialized neural network.
+        """
+        return NeuralNetwork(input_size=10, hidden_layers=[16, 16], output_size=100)
+
+    def start_simulation(self):
         """
         Starts the simulation by initializing the population and setting the running flag.
-
-        Args:
-            neural_network_factory (callable): A function to create random neural networks.
 
         Returns:
             None
         """
-        self.evolution.initialize_population(neural_network_factory)
+        self.evolution.initialize_population(self._neural_network_factory)
         self.is_running = True
         print(f"Simulation started with {self.population_size} patterns.")
 
@@ -63,26 +70,39 @@ class ModelController:
         self.is_running = False
         print("Simulation stopped.")
 
+    def reset_simulation(self):
+        """
+        Resets the simulation state, clearing the population and restarting.
+        """
+        self.stop_simulation()
+        self.output_handler.reset()
+        self.evolution.initialize_population(self._neural_network_factory)
+        self.current_generation = 0
+        print("Simulation reset.")
+
     def run_generation_cycle(self):
         """
         Executes a single generation cycle.
-
-        Returns:
-            dict: Statistics about the current generation.
         """
         if not self.is_running:
             print("Simulation is not running.")
             return
-
+    
         # Evaluate the current population
         self.evolution.evaluate_population()
-
+    
         # Generate the next generation
         self.evolution.generate_next_generation()
         self.current_generation += 1
-
+    
         # Fetch statistics for the current generation
         stats = self.get_generation_statistics()
+    
+        # Render patterns in the viewer (assuming viewer is accessible)
+        if hasattr(self, "viewer"):
+            self.viewer.render_patterns(self.get_population())
+            self.viewer.update_feedback(stats)
+    
         print(f"Generation {self.current_generation} completed: {stats}")
         return stats
 

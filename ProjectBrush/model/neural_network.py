@@ -27,13 +27,16 @@ class NeuralNetwork:
     def forward(self, input_data):
         """
         Performs a forward pass through the network.
-
+    
         Args:
             input_data (numpy array): The input data for the neural network.
-
+    
         Returns:
             numpy array: The output of the network.
         """
+        if input_data is None:
+            raise ValueError("Input data cannot be None. Ensure valid input is passed.")
+        
         current = input_data
         for weight, bias in zip(self.weights, self.biases):
             current = self._activation(np.dot(current, weight) + bias)

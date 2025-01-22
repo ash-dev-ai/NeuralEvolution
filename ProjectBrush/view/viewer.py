@@ -32,15 +32,26 @@ class Viewer:
         """
         Sets up the user interface layout and components.
         """
-        # Canvas for displaying patterns
+        # Scrollable canvas for displaying patterns
         self.canvas_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.canvas_grid = []
+        self.canvas_scrollbar = ttk.Scrollbar(self.canvas_frame, orient=tk.VERTICAL)
+        self.canvas_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Controls
+        self.canvas_widget = tk.Canvas(self.canvas_frame, yscrollcommand=self.canvas_scrollbar.set)
+        self.canvas_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.canvas_scrollbar.config(command=self.canvas_widget.yview)
+
+        self.canvas_grid_frame = ttk.Frame(self.canvas_widget)
+        self.canvas_widget.create_window((0, 0), window=self.canvas_grid_frame, anchor="nw")
+        self.canvas_grid_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas_widget.configure(scrollregion=self.canvas_widget.bbox("all"))
+        )
+
+        # Controls and Feedback
         self.controls_frame.pack(side=tk.LEFT, fill=tk.Y)
         self._setup_controls()
 
-        # Feedback
         self.feedback_frame.pack(side=tk.RIGHT, fill=tk.Y)
         self._setup_feedback()
 
@@ -92,18 +103,21 @@ class Viewer:
         Returns:
             None
         """
-        for widget in self.canvas_frame.winfo_children():
+        for widget in self.canvas_grid_frame.winfo_children():
             widget.destroy()
 
         grid_size = int(np.ceil(np.sqrt(len(population))))
-        for i, pattern in enumerate(population):
-            img = Image.fromarray((pattern.canvas * 255).astype(np.uint8))
-            img = img.resize((100, 100))
-            photo = ImageTk.PhotoImage(img)
+        thumbnail_size = max(100, self.canvas_frame.winfo_width() // (grid_size + 1))
 
-            label = tk.Label(self.canvas_frame, image=photo)
-            label.image = photo
-            label.grid(row=i // grid_size, column=i % grid_size, padx=5, pady=5)
+        for i, pattern in enumerate(population):
+            if pattern.canvas is not None:
+                img = Image.fromarray((pattern.canvas * 255).astype(np.uint8))
+                img = img.resize((thumbnail_size, thumbnail_size))
+                photo = ImageTk.PhotoImage(img)
+
+                label = tk.Label(self.canvas_grid_frame, image=photo)
+                label.image = photo
+                label.grid(row=i // grid_size, column=i % grid_size, padx=5, pady=5)
 
     def update_feedback(self, stats):
         """
@@ -120,26 +134,58 @@ class Viewer:
         self.best_fitness_label.config(text=f"Best Fitness: {stats['best_fitness']:.2f}")
 
     def _start_simulation(self):
-        self.controller.start_simulation(self.controller.evolution._neural_network_factory)
+        """
+        Starts the simulation and renders the initial population.
+        """
+        self.controller.start_simulation()
+        self.render_patterns(self.controller.get_population())
 
     def _stop_simulation(self):
+        """
+        Stops the simulation.
+        """
         self.controller.stop_simulation()
 
     def _reset_simulation(self):
-        self.controller.stop_simulation()
-        self.controller.start_simulation(self.controller.evolution._neural_network_factory)
+        """
+        Resets the simulation.
+        """
+        self.controller.reset_simulation()
+        self.render_patterns(self.controller.get_population())
+        self.update_feedback({
+            "generation": 0,
+            "average_fitness": 0,
+            "best_fitness": 0,
+        })
 
     def _update_mutation_rate(self, value):
+        """
+        Updates the mutation rate based on slider input.
+
+        Args:
+            value (str): The slider value.
+        """
         self.controller.update_parameters(mutation_rate=float(value))
 
     def _update_crossover_rate(self, value):
+        """
+        Updates the crossover rate based on slider input.
+
+        Args:
+            value (str): The slider value.
+        """
         self.controller.update_parameters(crossover_rate=float(value))
 
     def _export_images(self):
-        population = self.controller.get_population()
+        """
+        Exports the current generation as images.
+        """
         self.controller.export_evolution_data(format="images")
 
     def _export_video(self):
+        """
+        Exports the evolution process as a video.
+        """
         self.controller.export_evolution_data(format="video")
 
     def run(self):

@@ -1,6 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+import numpy as np
 
 class OutputHandler:
     """
@@ -15,7 +16,26 @@ class OutputHandler:
             export_dir (str): Directory to save exported files.
         """
         self.export_dir = export_dir
-        os.makedirs(self.export_dir, exist_ok=True)
+        self._ensure_directory(self.export_dir)
+
+    def reset(self):
+        """
+        Resets the output handler state for a new simulation run.
+
+        Returns:
+            None
+        """
+        if os.path.exists(self.export_dir):
+            for file in os.listdir(self.export_dir):
+                file_path = os.path.join(self.export_dir, file)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                elif os.path.isdir(file_path):
+                    for sub_file in os.listdir(file_path):
+                        os.remove(os.path.join(file_path, sub_file))
+                    os.rmdir(file_path)
+        self._ensure_directory(self.export_dir)
+        print("OutputHandler reset.")
 
     def export_images(self, population, generation):
         """
@@ -29,11 +49,12 @@ class OutputHandler:
             None
         """
         generation_dir = os.path.join(self.export_dir, f"generation_{generation}")
-        os.makedirs(generation_dir, exist_ok=True)
+        self._ensure_directory(generation_dir)
 
         for i, pattern in enumerate(population):
-            image_path = os.path.join(generation_dir, f"pattern_{i}.png")
-            self._save_image(pattern.canvas, image_path)
+            if pattern.canvas is not None:
+                image_path = os.path.join(generation_dir, f"pattern_{i}.png")
+                self._save_image(pattern.canvas, image_path)
 
         print(f"Exported generation {generation} as images to {generation_dir}.")
 
@@ -54,9 +75,15 @@ class OutputHandler:
         def update(frame):
             ax.clear()
             population = evolution.get_population()
-            best_pattern = max(population, key=lambda p: p.fitness)
-            ax.imshow(best_pattern.canvas, cmap="viridis")
-            ax.set_title(f"Generation: {frame}, Fitness: {best_pattern.fitness:.2f}")
+            if population:
+                best_pattern = max(population, key=lambda p: p.fitness)
+                if best_pattern.canvas is not None:
+                    ax.imshow(best_pattern.canvas, cmap="viridis")
+                    ax.set_title(f"Generation: {frame}, Fitness: {best_pattern.fitness:.2f}")
+                else:
+                    ax.text(0.5, 0.5, "No valid canvas", ha="center", va="center")
+            else:
+                ax.text(0.5, 0.5, "No population", ha="center", va="center")
 
         ani = FuncAnimation(fig, update, frames=evolution.generation_count, repeat=False)
         ani.save(video_path, fps=fps, writer="ffmpeg")
@@ -91,7 +118,10 @@ class OutputHandler:
         Returns:
             None
         """
-        plt.imsave(path, canvas, cmap="viridis")
+        if canvas is not None:
+            plt.imsave(path, canvas, cmap="viridis")
+        else:
+            print(f"Skipped saving image to {path}: canvas is None.")
 
     def _ensure_directory(self, path):
         """

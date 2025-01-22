@@ -1,7 +1,6 @@
 from control.model_controller import ModelController
 from view.viewer import Viewer
 
-
 def main():
     """
     Entry point for the AI Art Evolution application.
@@ -21,7 +20,7 @@ def main():
     # Initialize the Viewer and pass the controller to it
     viewer = Viewer(controller)
 
-    # Start the Viewer (this will start the Tkinter event loop)
+    # Start the Viewer (Tkinter main loop)
     viewer.run()
 
 

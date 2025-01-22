@@ -27,16 +27,12 @@ class Evolution:
     def initialize_population(self, neural_network_factory):
         """
         Creates the initial random population of patterns.
-
-        Args:
-            neural_network_factory (callable): A function to create random neural networks.
-
-        Returns:
-            None
         """
         self.population = [
             Pattern(neural_network_factory()) for _ in range(self.population_size)
         ]
+        for pattern in self.population:
+            pattern.generate_pattern()
 
     def evaluate_population(self):
         """
