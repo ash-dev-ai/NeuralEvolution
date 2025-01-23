@@ -25,22 +25,24 @@ class NeuralNetwork:
         self.layers = self._get_network_structure()
 
     def forward(self, input_data):
-        """
-        Performs forward pass through evolved network.
-        
-        Args:
-            input_data (numpy array): Input vector (length must match input_size)
-            
-        Returns:
-            numpy array: Network output
-        """
+        """NEAT-compatible forward pass with spatial awareness"""
         try:
-            # NEAT networks use lists, convert to numpy for compatibility
-            output = np.array(self.network.activate(input_data))
-            return output
+            # Generate coordinate grid
+            size = int(np.sqrt(self.config.genome_config.num_outputs))
+            x = np.linspace(0, 1, size)
+            y = np.linspace(0, 1, size)
+            xx, yy = np.meshgrid(x, y)
+            
+            # Process spatial coordinates through network
+            output = []
+            for x_coord, y_coord in zip(xx.flatten(), yy.flatten()):
+                activation = self.network.activate([x_coord, y_coord])
+                output.append(activation[0])
+                
+            return np.array(output).reshape(size, size)
         except Exception as e:
-            print(f"NEAT forward error: {e}")
-            return np.zeros(self.output_size)
+            print(f"Forward error: {e}")
+            return np.zeros((10, 10))
 
     def _get_network_structure(self):
         """

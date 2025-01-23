@@ -1,102 +1,90 @@
 import numpy as np
+from model.fitness_utils import FitnessUtils
 
 class FitnessEvaluator:
-    """
-    Evaluates pattern fitness for NEAT evolution with robust error handling.
-    Supports hybrid objective/subjective scoring.
-    """
-
-    def __init__(self, criteria_weights=None, user_weight=0.3):
-        """
-        Initializes fitness evaluator with configurable weights.
-        
-        Args:
-            criteria_weights (dict): Objective criteria weights
-            user_weight (float): Weight for subjective user scores (0-1)
-        """
-        self.criteria_weights = criteria_weights or {
-            "symmetry": 0.4,
-            "complexity": 0.3,
-            "contrast": 0.3
-        }
-        self.user_weight = max(0, min(1, user_weight))
+    def __init__(self, user_weight=0.3):
+        self.generation = 0
+        self.archive = []
+        self.user_weight = max(0.0, min(1.0, user_weight))
 
     def evaluate(self, pattern, user_feedback=None):
-        """
-        Main evaluation method combining objective and subjective scores.
-        
-        Args:
-            pattern (Pattern): Pattern to evaluate
-            user_feedback (float): Optional user rating (0-1)
-            
-        Returns:
-            float: Combined fitness score
-        """
         objective = self.evaluate_objective(pattern)
-        
         if user_feedback is not None:
-            subjective = self.evaluate_subjective(user_feedback)
-            return self.combine_scores(objective, subjective)
+            return self.combine_scores(objective, self.evaluate_subjective(user_feedback))
         return objective
 
     def evaluate_objective(self, pattern):
-        """Calculate objective fitness score with error handling"""
-        if pattern.canvas is None:
+        """Main entry point for phased evaluation"""
+        if not isinstance(pattern.canvas, np.ndarray):
             return 0.0
             
-        try:
-            symmetry = self._evaluate_symmetry(pattern.canvas)
-            complexity = self._evaluate_complexity(pattern.canvas)
-            contrast = self._evaluate_contrast(pattern.canvas)
+        if self.generation <= 50:
+            return self._phase1_symmetry_contrast(pattern)
+        elif 51 <= self.generation <= 150:
+            return self._phase2_composition(pattern)
+        else:
+            return self._phase3_novelty(pattern)
+    
+    def _phase1_symmetry_contrast(self, pattern):
+        symmetry = self._evaluate_symmetry(pattern.canvas)
+        contrast = self._evaluate_contrast(pattern.canvas)
+        active_area = np.mean(pattern.canvas > 0.1)  # Use element-wise comparison
+        return 0.4*symmetry + 0.4*contrast + 0.2*active_area
+
+    def _phase2_composition(self, pattern):
+        phase1_score = self._phase1_symmetry_contrast(pattern)
+        edge_density = FitnessUtils.detect_edge_density(pattern.canvas)
+        color_coherence = FitnessUtils.calculate_color_coherence(pattern.canvas)
+        return 0.6*phase1_score + 0.25*edge_density + 0.15*color_coherence
+
+    def _phase3_novelty(self, pattern):
+        phase2_score = self._phase2_composition(pattern)
+        novelty = self._compare_to_archive(pattern.canvas)
+        return 0.7*phase2_score + 0.3*novelty
+
+    def _compare_to_archive(self, canvas):
+        """Novelty detection with archive management"""
+        hash_size = 32
+        flat = (canvas * 255).astype(np.uint8).flatten()
+        features = np.mean(flat.reshape(-1, hash_size), axis=1)
+        
+        if not self.archive:
+            self.archive.append(features)
+            return 1.0  # First pattern is maximally novel
             
-            return (self.criteria_weights["symmetry"] * symmetry +
-                    self.criteria_weights["complexity"] * complexity +
-                    self.criteria_weights["contrast"] * contrast)
-                    
-        except Exception as e:
-            print(f"Fitness evaluation error: {e}")
-            return 0.0
-
-    def evaluate_subjective(self, user_feedback):
-        """Process user rating with sanity checks"""
-        return max(0.0, min(1.0, float(user_feedback)))
-
-    def combine_scores(self, objective_score, subjective_score):
-        """Combine scores using configured weights"""
-        objective = max(0.0, min(1.0, objective_score))
-        subjective = max(0.0, min(1.0, subjective_score))
-        return (1 - self.user_weight) * objective + self.user_weight * subjective
+        distances = [np.linalg.norm(features - a) for a in self.archive]
+        novelty = np.mean(distances) / (255 * np.sqrt(hash_size))
+        
+        if novelty > 0.7:
+            self.archive.append(features)
+            
+        return min(novelty, 1.0)
 
     def _evaluate_symmetry(self, canvas):
-        """Calculate symmetry score with input validation"""
+        """Calculate horizontal symmetry score (0-1)"""
         try:
-            assert canvas.ndim == 2, "Canvas must be 2D array"
+            if canvas is None or canvas.ndim != 2:
+                return 0.0
+                
             h, w = canvas.shape
             half = w // 2
             left = canvas[:, :half]
             right = np.flip(canvas[:, half + w%2:], axis=1)
             return 1 - np.mean(np.abs(left - right))
         except Exception as e:
-            print(f"Symmetry evaluation failed: {e}")
-            return 0.0
-
-    def _evaluate_complexity(self, canvas):
-        """Calculate complexity using normalized entropy"""
-        try:
-            flattened = canvas.flatten()
-            hist = np.histogram(flattened, bins=256, range=(0, 1))[0] + 1e-7
-            hist = hist / hist.sum()
-            entropy = -np.sum(hist * np.log2(hist))
-            return entropy / np.log2(256)  # Normalize to [0,1]
-        except Exception as e:
-            print(f"Complexity evaluation failed: {e}")
+            print(f"Symmetry evaluation error: {e}")
             return 0.0
 
     def _evaluate_contrast(self, canvas):
         """Calculate contrast with minimum threshold"""
         try:
-            contrast = np.std(canvas)
-            return max(contrast, 0.1)  # Ensure minimum contrast
+            return max(np.std(canvas), 0.1)  # Ensure minimum contrast
         except Exception as e:
-            print(f"Contrast evaluation failed: {e}")
-            return 0.1  # Return minimum value
+            print(f"Contrast evaluation error: {e}")
+            return 0.1
+
+    def evaluate_subjective(self, user_feedback):
+        return np.clip(float(user_feedback), 0.0, 1.0)
+
+    def combine_scores(self, objective, subjective):
+        return (1 - self.user_weight)*objective + self.user_weight*subjective

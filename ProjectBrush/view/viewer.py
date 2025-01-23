@@ -90,6 +90,18 @@ class Viewer:
                     label = tk.Label(self.canvas_grid_frame, image=photo)
                     label.image = photo
                     label.grid(row=i//grid_size, column=i%grid_size, padx=5, pady=5)
+                    
+                    # Upscale with anti-aliasing
+                    img = Image.fromarray(colored).resize(
+                        (thumbnail_size, thumbnail_size), 
+                        resample=Image.Resampling.LANCZOS  # High-quality resampling
+                    )
+                    
+                    # Sharpening filter for detail
+                    from PIL import ImageFilter
+                    img = img.filter(ImageFilter.SHARPEN)
+                    
+                    photo = ImageTk.PhotoImage(img)
                 except Exception as e:
                     print(f"Rendering error: {e}")
             else:
@@ -124,6 +136,23 @@ class Viewer:
         self.best_fitness_label.config(text=f"Best Fitness: {max(stats['best_fitness'], 0):.2f}")
         self.render_patterns(self.controller.get_population())
         self.root.update_idletasks()
+    
+    def _apply_postprocessing(self, image):
+        """Enhances image details"""
+        from PIL import ImageEnhance
+        
+        # Increase contrast
+        enhancer = ImageEnhance.Contrast(image)
+        image = enhancer.enhance(1.2)
+        
+        # Boost sharpness
+        enhancer = ImageEnhance.Sharpness(image)
+        image = enhancer.enhance(2.0)
+        
+        # Add subtle noise for organic feel
+        noise = np.random.rand(*image.size, 3) * 0.1
+        noisy_image = np.array(image) * (1 - 0.1) + noise * 255 * 0.1
+        return Image.fromarray(noisy_image.astype(np.uint8))
 
     # Controller interaction methods
     def _start_simulation(self):
