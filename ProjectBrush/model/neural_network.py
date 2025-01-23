@@ -1,84 +1,73 @@
-import random
 import numpy as np
+import neat
 
 class NeuralNetwork:
     """
-    Represents a simple neural network for generating patterns.
+    Represents a NEAT-optimized neural network for generating patterns.
+    (Now wraps NEAT genome instead of manual weight management)
     """
 
-    def __init__(self, input_size, hidden_layers, output_size):
+    def __init__(self, genome, config):
         """
-        Initializes the neural network with random weights and biases.
+        Initializes neural network from NEAT genome.
 
         Args:
-            input_size (int): Number of input nodes.
-            hidden_layers (list of int): List specifying the number of neurons in each hidden layer.
-            output_size (int): Number of output nodes.
+            genome (neat.DefaultGenome): NEAT genome object
+            config (neat.Config): NEAT configuration
         """
-        self.input_size = input_size
-        self.hidden_layers = hidden_layers
-        self.output_size = output_size
-
-        # Initialize weights and biases
-        self.layers = [input_size] + hidden_layers + [output_size]
-        self.weights = [np.random.randn(self.layers[i], self.layers[i+1]) for i in range(len(self.layers)-1)]
-        self.biases = [np.random.randn(size) for size in self.layers[1:]]
+        self.genome = genome
+        self.config = config
+        self.network = neat.nn.FeedForwardNetwork.create(genome, config)
+        
+        # Track network structure for compatibility
+        self.input_size = config.genome_config.num_inputs
+        self.output_size = config.genome_config.num_outputs
+        self.layers = self._get_network_structure()
 
     def forward(self, input_data):
         """
-        Performs a forward pass through the network.
-    
+        Performs forward pass through evolved network.
+        
         Args:
-            input_data (numpy array): The input data for the neural network.
-    
+            input_data (numpy array): Input vector (length must match input_size)
+            
         Returns:
-            numpy array: The output of the network.
+            numpy array: Network output
         """
         try:
-            current = input_data
-            for idx, (weight, bias) in enumerate(zip(self.weights, self.biases)):
-                current = self._activation(np.dot(current, weight) + bias)
-                print(f"Layer {idx}: Output shape {current.shape}")
-            return current
+            # NEAT networks use lists, convert to numpy for compatibility
+            output = np.array(self.network.activate(input_data))
+            return output
         except Exception as e:
-            print(f"Error in forward pass: {e}")
+            print(f"NEAT forward error: {e}")
             return np.zeros(self.output_size)
 
-    def mutate(self, mutation_rate):
+    def _get_network_structure(self):
         """
-        Applies random mutations to the weights and biases.
-
-        Args:
-            mutation_rate (float): Probability of changing each weight/bias.
-
+        Extracts network structure from genome for visualization.
+        
         Returns:
-            None
+            list: Layer sizes [input, hidden..., output]
         """
-        for i in range(len(self.weights)):
-            mutation_mask = np.random.rand(*self.weights[i].shape) < mutation_rate
-            self.weights[i] += mutation_mask * np.random.randn(*self.weights[i].shape)
-
-        for i in range(len(self.biases)):
-            mutation_mask = np.random.rand(*self.biases[i].shape) < mutation_rate
-            self.biases[i] += mutation_mask * np.random.randn(*self.biases[i].shape)
-
-    def _activation(self, x):
-        """
-        Activation function for the neural network.
-
-        Args:
-            x (numpy array): Input to the activation function.
-
-        Returns:
-            numpy array: Output after applying the activation function.
-        """
-        return np.tanh(x)  # Use tanh for simplicity
+        layers = [self.input_size]
+        node_ids = sorted(self.genome.nodes.keys())
+        
+        # Count hidden nodes (exclude input/output)
+        input_range = range(0, -self.input_size, -1)
+        output_range = range(1, self.output_size+1)
+        hidden_nodes = [n for n in node_ids if n not in input_range and n not in output_range]
+        
+        if hidden_nodes:
+            layers.append(len(hidden_nodes))
+        layers.append(self.output_size)
+        
+        return layers
 
     def __repr__(self):
         """
-        Provides a string representation of the neural network structure.
-
-        Returns:
-            str: Description of the network.
+        Provides string representation of evolved network.
         """
-        return f"NeuralNetwork(Layers: {self.layers})"
+        return (f"NEATNetwork(Inputs: {self.input_size}, "
+                f"Hidden: {len(self.layers)-2}, "
+                f"Outputs: {self.output_size}, "
+                f"Connections: {len(self.genome.connections)})")

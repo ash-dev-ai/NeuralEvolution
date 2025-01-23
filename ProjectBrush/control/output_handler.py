@@ -80,17 +80,10 @@ class OutputHandler:
     def export_video(self, evolution, fps=5):
         """
         Exports the evolution process as a video.
-
-        Args:
-            evolution (Evolution): The evolution object containing population history.
-            fps (int): Frames per second for the video.
-
-        Returns:
-            None
         """
         video_path = os.path.join(self.export_dir, "evolution_video.mp4")
         fig, ax = plt.subplots()
-
+    
         def update(frame):
             ax.clear()
             population = evolution.get_population()
@@ -103,10 +96,23 @@ class OutputHandler:
                     ax.text(0.5, 0.5, "No valid canvas", ha="center", va="center")
             else:
                 ax.text(0.5, 0.5, "No population", ha="center", va="center")
-
+    
         ani = FuncAnimation(fig, update, frames=evolution.generation_count, repeat=False)
-        ani.save(video_path, fps=fps, writer="ffmpeg")
-        print(f"Exported evolution video to {video_path}.")
+    
+        try:
+            # Try exporting as MP4 with FFmpeg
+            ani.save(video_path, fps=fps, writer="ffmpeg")
+            print(f"Exported evolution video to {video_path}.")
+        except Exception as e:
+            print(f"FFmpeg unavailable: {e}")
+            print("Falling back to GIF export.")
+            gif_path = os.path.join(self.export_dir, "evolution_video.gif")
+            ani.save(gif_path, fps=fps, writer="pillow")
+            print(f"Exported evolution video as GIF to {gif_path}.")
+    
+            ani = FuncAnimation(fig, update, frames=evolution.generation_count, repeat=False)
+            ani.save(video_path, fps=fps, writer="ffmpeg")
+            print(f"Exported evolution video to {video_path}.")
 
     def log_statistics(self, stats, generation):
         """

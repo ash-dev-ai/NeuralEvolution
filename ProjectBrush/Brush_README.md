@@ -50,6 +50,25 @@ ProjectBrush/
 ```
 
 ---
+## **NEAT Configuration Flow**
+graph TD
+    A[main.py] -->|passes| B(config_path)
+    B --> C[ModelController]
+    C --> D[NEAT Config]
+    D --> E[Population Size]
+    D --> F[Mutation Rates]
+    D --> G[Crossover Rates]
+
+---
+
+## **NEAT Config File Requirements**
+[NEAT]
+pop_size = 50  # Population size here
+mutate_add_node_prob = 0.2  # Mutation rates here
+mutate_add_conn_prob = 0.3
+# ... other NEAT parameters
+
+---
 
 ## **Installation**
 1. **Clone the Repository**:
